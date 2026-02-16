@@ -36,6 +36,20 @@ local last_target = {x=0, y=0, z=0}
 local distance_history = {}
 local velocity_history = {}
 
+-- State variables for onDraw (populated in onTick)
+-- Note: onDraw cannot call input functions, so we store values here
+local draw_state = {
+    base_x = 0,
+    base_y = 0,
+    base_z = 0,
+    pitch = 0,
+    yaw = 0,
+    roll = 0,
+    zoom = 0,
+    track_mode = false,
+    targets = {}  -- Array of target data for drawing
+}
+
 -- Initialize history arrays
 for i = 1, HISTORY_SIZE do
     distance_history[i] = 0
@@ -264,6 +278,31 @@ function onTick()
     while #velocity_history > HISTORY_SIZE do
         table_remove(velocity_history, 1)
     end
+    
+    -- Store state for onDraw (input functions not available in onDraw)
+    draw_state.base_x = base_x
+    draw_state.base_y = base_y
+    draw_state.base_z = base_z
+    draw_state.pitch = pitch
+    draw_state.yaw = yaw
+    draw_state.roll = roll
+    draw_state.zoom = zoom
+    draw_state.track_mode = track_mode
+    
+    -- Store target data for drawing
+    draw_state.targets = {}
+    for i = 1, 8 do
+        if target_active[i] then
+            draw_state.targets[i] = {
+                active = true,
+                distance = input.getNumber(4 * i - 3),
+                azimuth = input.getNumber(4 * i - 2) * TWO_PI,
+                elevation = input.getNumber(4 * i - 1) * TWO_PI
+            }
+        else
+            draw_state.targets[i] = {active = false}
+        end
+    end
 end
 
 -- Draw function - runs every frame
@@ -271,15 +310,15 @@ function onDraw()
     local width = screen_getWidth()
     local height = screen_getHeight()
     
-    -- Read current state for display
-    local base_x = input.getNumber(4)
-    local base_y = input.getNumber(12)
-    local base_z = input.getNumber(8)
-    local pitch = input.getNumber(16)
-    local yaw = input.getNumber(24)
-    local roll = input.getNumber(20)
-    local zoom = input.getNumber(28)
-    local track_mode = input.getBool(9)
+    -- Use state stored from onTick (input not available in onDraw)
+    local base_x = draw_state.base_x
+    local base_y = draw_state.base_y
+    local base_z = draw_state.base_z
+    local pitch = draw_state.pitch
+    local yaw = draw_state.yaw
+    local roll = draw_state.roll
+    local zoom = draw_state.zoom
+    local track_mode = draw_state.track_mode
     
     -- Calculate zoom-adjusted field of view
     local fov_scale = 132 * (1 - zoom) + 1.5 * zoom
@@ -334,9 +373,10 @@ function onDraw()
     
     -- Draw all active targets
     for i = 1, 8 do
-        if input.getBool(i) then
-            local azimuth = input.getNumber(4 * i - 2) * TWO_PI
-            local elevation = input.getNumber(4 * i - 1) * TWO_PI
+        local target = draw_state.targets[i]
+        if target and target.active then
+            local azimuth = target.azimuth
+            local elevation = target.elevation
             
             if azimuth + elevation ~= 0 then
                 local target_x = width / 2 + height * azimuth / (fov_scale * PI / FOV_BASE)
@@ -396,15 +436,16 @@ function onDraw()
     -- Draw target range markers
     screen_setColor(COLOR_MAX, COLOR_MAX, 0)
     for i = 1, 8 do
-        if input.getBool(i) then
-            local distance = input.getNumber(4 * i - 3)
+        local target = draw_state.targets[i]
+        if target and target.active then
+            local distance = target.distance
             local base_distance = distance3D(
                 filter_x.filtered_position - base_x,
                 filter_y.filtered_position - base_y,
                 filter_z.filtered_position - base_z
             )
-            local azimuth = input.getNumber(4 * i - 2) * TWO_PI
-            local elevation = input.getNumber(4 * i - 1) * TWO_PI
+            local azimuth = target.azimuth
+            local elevation = target.elevation
             
             local ratio = distance / base_distance
             if ratio <= 1.05 then
