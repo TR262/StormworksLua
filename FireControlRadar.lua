@@ -67,6 +67,15 @@ local function createFilter(mass, damping, frequency)
         frequency = frequency,
         
         update = function(self, target_position, reset, noise_variance)
+            -- Reset FIRST if target changed significantly or initial lock
+            if reset then
+                self.filtered_position = target_position
+                self.velocity = 0
+                self.mass = mass  -- Reset mass to initial value
+                return  -- Skip normal update when resetting
+            end
+            
+            -- Normal filter update with valid state
             self.mass = self.mass + self.damping
             local alpha = self.mass / (self.mass + noise_variance)
             
@@ -76,11 +85,6 @@ local function createFilter(mass, damping, frequency)
             self.filtered_position = predicted + alpha * error
             self.velocity = self.velocity + (alpha / 5) * error / self.frequency
             self.mass = (1 - alpha) * self.mass
-            
-            if reset then
-                self.filtered_position = target_position
-                self.velocity = 0
-            end
         end
     }
 end
