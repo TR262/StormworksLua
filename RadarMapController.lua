@@ -22,6 +22,11 @@ COMPASS_ARROW_RIGHT_OFFSET = 0.6
 -- Radar Sweep Display Constants
 RADAR_SWEEP_WIDTH = 2000  -- Width of radar sweep triangle
 
+-- Pre-allocated color tables (avoid allocations in draw loop)
+COLOR_SSM = {100, 100, 0, 220}
+COLOR_GUN = {0, 225, 0, 50}
+COLOR_SAM = {0, 225, 0, 50}
+
 -- Global State
 TRACKED_TARGETS = {}
 NEXT_TARGET_INDEX = 1
@@ -235,8 +240,9 @@ function ProcessRadarInputs(targets, ship_x, ship_y, radar_angle, radar_enabled)
 	end
 end
 
---- Draw a single radar target
+--- Draw a single radar target (kept for documentation, inlined in onDraw for performance)
 --- @param target table Target data
+--- Performance Note: This function is inlined in onDraw to avoid function call overhead
 function DrawTarget(target)
 	local target_x, target_y = RotatePoint(target.distance, target.angle, SHIP_GPS_X, SHIP_GPS_Y)
 	local screen_x, screen_y = mapToScreen(SHIP_GPS_X, SHIP_GPS_Y, ZOOM, SCREEN_WIDTH, SCREEN_HEIGHT, target_x, target_y)
@@ -380,9 +386,15 @@ function onDraw()
 	
 	-- Draw radar sweep if enabled
 	if RADAR_ENABLED then
-		-- Calculate radar sweep endpoint
-		local radar_end_x, radar_end_y = RotatePoint(RADAR_RANGE, RADAR_ANGLE, SHIP_GPS_X, SHIP_GPS_Y)
-		local radar_edge_x, radar_edge_y = RotatePoint(RADAR_RANGE, RADAR_ANGLE + RADAR_SWEEP_WIDTH / RADAR_RANGE, SHIP_GPS_X, SHIP_GPS_Y)
+		-- Calculate radar sweep endpoint (inline RotatePoint for performance)
+		local radar_angle_cos = cos(RADAR_ANGLE)
+		local radar_angle_sin = sin(RADAR_ANGLE)
+		local radar_end_x = SHIP_GPS_X + RADAR_RANGE * radar_angle_cos
+		local radar_end_y = SHIP_GPS_Y + RADAR_RANGE * radar_angle_sin
+		
+		local radar_edge_angle = RADAR_ANGLE + RADAR_SWEEP_WIDTH / RADAR_RANGE
+		local radar_edge_x = SHIP_GPS_X + RADAR_RANGE * cos(radar_edge_angle)
+		local radar_edge_y = SHIP_GPS_Y + RADAR_RANGE * sin(radar_edge_angle)
 		
 		local radar_screen_x, radar_screen_y = mapToScreen(
 			SHIP_GPS_X, SHIP_GPS_Y, ZOOM,
@@ -390,8 +402,10 @@ function onDraw()
 			radar_end_x, radar_end_y
 		)
 		
-		-- Calculate radar sweep radius on screen
-		local radar_radius = sqrt(DistanceSquared(ship_screen_x, ship_screen_y, radar_screen_x, radar_screen_y))
+		-- Calculate radar sweep radius on screen (inline DistanceSquared)
+		local dx = radar_screen_x - ship_screen_x
+		local dy = radar_screen_y - ship_screen_y
+		local radar_radius = sqrt(dx * dx + dy * dy)
 		
 		-- Draw radar sweep circles
 		screen.setColor(0, 225, 0, 5)
@@ -416,16 +430,55 @@ function onDraw()
 			radar_edge_screen_x, radar_edge_screen_y + 3
 		)
 		
-		-- Draw tracked targets
+		-- Draw tracked targets (inline for performance)
 		for i = 1, #TRACKED_TARGETS do
-			DrawTarget(TRACKED_TARGETS[i])
+			local target = TRACKED_TARGETS[i]
+			-- Inline RotatePoint
+			local target_angle_cos = cos(target.angle)
+			local target_angle_sin = sin(target.angle)
+			local target_x = SHIP_GPS_X + target.distance * target_angle_cos
+			local target_y = SHIP_GPS_Y + target.distance * target_angle_sin
+			
+			local screen_x, screen_y = mapToScreen(SHIP_GPS_X, SHIP_GPS_Y, ZOOM, SCREEN_WIDTH, SCREEN_HEIGHT, target_x, target_y)
+			
+			-- Color: green for airborne targets, blue for surface targets
+			local green = target.isAirborne and 255 or 0
+			local blue = target.isAirborne and 0 or 255
+			local alpha = target.timeLeft
+			if alpha < 0 then alpha = 0 elseif alpha > 255 then alpha = 255 end
+			
+			screen.setColor(0, green, blue, alpha)
+			drawCircleF(screen_x, screen_y, 1.5)
 		end
 	end
 	
-	-- Draw weapon system positions
-	DrawLabeledPoint(SSM_GPS_X, SSM_GPS_Y, "SSM", {100, 100, 0, 220}, false)
-	DrawLabeledPoint(GUN_GPS_X, GUN_GPS_Y, "GUN", {0, 225, 0, 50}, true)
-	DrawLabeledPoint(SAM_GPS_X, SAM_GPS_Y, "SAM", {0, 225, 0, 50}, true)
+	-- Draw weapon system positions (inline for performance)
+	-- SSM
+	if SSM_GPS_X ~= 0 and SSM_GPS_Y ~= 0 then
+		local screen_x, screen_y = mapToScreen(SHIP_GPS_X, SHIP_GPS_Y, ZOOM, SCREEN_WIDTH, SCREEN_HEIGHT, SSM_GPS_X, SSM_GPS_Y)
+		screen.setColor(100, 100, 0, 220)
+		drawCircleF(screen_x, screen_y, 2)
+		screen.drawRect(screen_x - 4, screen_y - 4, 6, 6)
+		screen.drawText(screen_x + 6, screen_y - 5, "SSM")
+	end
+	
+	-- GUN
+	if GUN_GPS_X ~= 0 and GUN_GPS_Y ~= 0 then
+		local screen_x, screen_y = mapToScreen(SHIP_GPS_X, SHIP_GPS_Y, ZOOM, SCREEN_WIDTH, SCREEN_HEIGHT, GUN_GPS_X, GUN_GPS_Y)
+		screen.setColor(0, 225, 0, 50)
+		screen.drawRectF(screen_x - 2, screen_y - 1, 3, 3)
+		screen.drawRect(screen_x - 4, screen_y - 4, 6, 6)
+		screen.drawText(screen_x + 6, screen_y + 3, "GUN")
+	end
+	
+	-- SAM
+	if SAM_GPS_X ~= 0 and SAM_GPS_Y ~= 0 then
+		local screen_x, screen_y = mapToScreen(SHIP_GPS_X, SHIP_GPS_Y, ZOOM, SCREEN_WIDTH, SCREEN_HEIGHT, SAM_GPS_X, SAM_GPS_Y)
+		screen.setColor(0, 225, 0, 50)
+		screen.drawRectF(screen_x - 2, screen_y - 1, 3, 3)
+		screen.drawRect(screen_x - 4, screen_y - 4, 6, 6)
+		screen.drawText(screen_x + 6, screen_y + 3, "SAM")
+	end
 	
 	-- Draw zoom controls
 	screen.setColor(128, 128, 128, 55)
@@ -473,12 +526,13 @@ function onDraw()
 	
 	-- Draw heading indicator (compass arrow)
 	screen.setColor(16, 16, 16, 245)
-	local arrow_tip_x = SCREEN_WIDTH / 2 + COMPASS_ARROW_TIP_RADIUS * -sin(COMPASS_INPUT * 2 * pi)
-	local arrow_tip_y = SCREEN_HEIGHT / 2 - COMPASS_ARROW_TIP_RADIUS * cos(COMPASS_INPUT * 2 * pi)
-	local arrow_left_x = SCREEN_WIDTH / 2 + COMPASS_ARROW_BASE_RADIUS * -sin((COMPASS_INPUT + COMPASS_ARROW_LEFT_OFFSET) * 2 * pi)
-	local arrow_left_y = SCREEN_HEIGHT / 2 - COMPASS_ARROW_BASE_RADIUS * cos((COMPASS_INPUT + COMPASS_ARROW_LEFT_OFFSET) * 2 * pi)
-	local arrow_right_x = SCREEN_WIDTH / 2 + COMPASS_ARROW_BASE_RADIUS * -sin((COMPASS_INPUT + COMPASS_ARROW_RIGHT_OFFSET) * 2 * pi)
-	local arrow_right_y = SCREEN_HEIGHT / 2 - COMPASS_ARROW_BASE_RADIUS * cos((COMPASS_INPUT + COMPASS_ARROW_RIGHT_OFFSET) * 2 * pi)
+	local compass_angle = COMPASS_INPUT * 2 * pi
+	local arrow_tip_x = SCREEN_WIDTH / 2 + COMPASS_ARROW_TIP_RADIUS * -sin(compass_angle)
+	local arrow_tip_y = SCREEN_HEIGHT / 2 - COMPASS_ARROW_TIP_RADIUS * cos(compass_angle)
+	local arrow_left_x = SCREEN_WIDTH / 2 + COMPASS_ARROW_BASE_RADIUS * -sin(compass_angle + COMPASS_ARROW_LEFT_OFFSET * 2 * pi)
+	local arrow_left_y = SCREEN_HEIGHT / 2 - COMPASS_ARROW_BASE_RADIUS * cos(compass_angle + COMPASS_ARROW_LEFT_OFFSET * 2 * pi)
+	local arrow_right_x = SCREEN_WIDTH / 2 + COMPASS_ARROW_BASE_RADIUS * -sin(compass_angle + COMPASS_ARROW_RIGHT_OFFSET * 2 * pi)
+	local arrow_right_y = SCREEN_HEIGHT / 2 - COMPASS_ARROW_BASE_RADIUS * cos(compass_angle + COMPASS_ARROW_RIGHT_OFFSET * 2 * pi)
 	
 	screen.drawTriangleF(
 		arrow_tip_x, arrow_tip_y,
