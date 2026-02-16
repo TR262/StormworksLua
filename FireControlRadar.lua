@@ -85,6 +85,11 @@ local function createFilter(mass, damping, frequency)
             self.filtered_position = predicted + alpha * error
             self.velocity = self.velocity + (alpha / 5) * error / self.frequency
             self.mass = (1 - alpha) * self.mass
+            
+            -- Prevent mass from collapsing (causes oscillations/instability)
+            if self.mass < 1 then
+                self.mass = 1
+            end
         end
     }
 end
