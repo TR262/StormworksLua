@@ -141,7 +141,6 @@ function onTick()
     local targets = {}
     local active_targets = 0
     local target_active = {}
-    local target_metrics = {}
     
     for i = 1, 8 do
         local is_active = input_getBool(i)
@@ -171,18 +170,6 @@ function onTick()
                 z = base_z + world_z,
                 azimuth = azimuth,
                 elevation = elevation
-            }
-            
-            -- Pre-calculate metric for proximity detection
-            local filter_distance = distance3D(
-                filter_x.position - base_x,
-                filter_y.position - base_y,
-                filter_z.position - base_z
-            )
-            target_metrics[i] = {
-                filter_distance / filter_distance,
-                azimuth,
-                elevation
             }
         end
     end
@@ -382,8 +369,8 @@ function onDraw()
     -- Display telemetry
     screen_setColor(0, 150, 23, 225)
     screen_drawText(1, 20, string_format("%.0fm", avg_distance))
+    screen_drawText(1, 28, string_format("%.0f ALT", filter_z.filtered_position))
     screen_drawText(1, 36, string_format("%.0f KPH", avg_velocity * 60 * 3.6))
-    screen_drawText(1, 29, string_format("%.0f ALT", filter_z.filtered_position))
     
     -- Display mode
     screen_setColor(COLOR_MAX, 0, 0, 225)
@@ -400,7 +387,7 @@ function onDraw()
     screen_setColor(0, 50, 0)
     local angle = 0.03 * TWO_PI
     for side = 1, 2 do
-        local sign = (-1) ^ side
+        local sign = (side == 1) and -1 or 1
         screen_drawLine(
             width - 6,
             height - 1,
