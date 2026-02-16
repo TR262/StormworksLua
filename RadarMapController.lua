@@ -27,6 +27,16 @@ COLOR_SSM = {100, 100, 0, 220}
 COLOR_GUN = {0, 225, 0, 50}
 COLOR_SAM = {0, 225, 0, 50}
 
+-- Radar input configuration (pre-allocated to avoid table creation each tick)
+RADAR_INPUTS = {
+	{button = 1, number = 1, airborneFlag = 21},
+	{button = 2, number = 5, airborneFlag = 22},
+	{button = 19, number = 4, airborneFlag = 20},
+	{button = 30, number = 8, airborneFlag = 23},
+	{button = 27, number = 26, airborneFlag = 24},
+	{button = 26, number = 27, airborneFlag = 25}
+}
+
 -- Global State
 TRACKED_TARGETS = {}
 NEXT_TARGET_INDEX = 1
@@ -141,8 +151,11 @@ function UpdateOrAddTarget(targets, distance, angle, is_airborne, ship_x, ship_y
 		return
 	end
 	
-	-- Calculate target position
-	local target_x, target_y = RotatePoint(distance, angle, ship_x, ship_y)
+	-- Calculate target position (inline RotatePoint for performance)
+	local angle_cos = cos(angle)
+	local angle_sin = sin(angle)
+	local target_x = ship_x + distance * angle_cos
+	local target_y = ship_y + distance * angle_sin
 	
 	-- Try to find existing nearby target
 	-- Note: This compares squared distance (dist_sq) against a linear threshold (MIN_MATCHING_DISTANCE).
@@ -156,8 +169,15 @@ function UpdateOrAddTarget(targets, distance, angle, is_airborne, ship_x, ship_y
 	for i = 1, #targets do
 		local target = targets[i]
 		if target.isAirborne == is_airborne then
-			local existing_x, existing_y = RotatePoint(target.distance, target.angle, ship_x, ship_y)
-			local dist_sq = DistanceSquared(target_x, target_y, existing_x, existing_y)
+			-- Inline RotatePoint and DistanceSquared for performance
+			local existing_angle_cos = cos(target.angle)
+			local existing_angle_sin = sin(target.angle)
+			local existing_x = ship_x + target.distance * existing_angle_cos
+			local existing_y = ship_y + target.distance * existing_angle_sin
+			
+			local dx = existing_x - target_x
+			local dy = existing_y - target_y
+			local dist_sq = dx * dx + dy * dy
 			
 			if dist_sq < best_match_distance then
 				best_match_distance = dist_sq
@@ -202,18 +222,9 @@ end
 --- @param radar_enabled boolean Whether radar is active
 function ProcessRadarInputs(targets, ship_x, ship_y, radar_angle, radar_enabled)
 	if radar_enabled then
-		-- Radar input configuration: button, distance channel, airborne flag
-		local radar_inputs = {
-			{button = 1, number = 1, airborneFlag = 21},
-			{button = 2, number = 5, airborneFlag = 22},
-			{button = 19, number = 4, airborneFlag = 20},
-			{button = 30, number = 8, airborneFlag = 23},
-			{button = 27, number = 26, airborneFlag = 24},
-			{button = 26, number = 27, airborneFlag = 25}
-		}
-		
-		for i = 1, #radar_inputs do
-			local input_config = radar_inputs[i]
+		-- Use pre-allocated RADAR_INPUTS table (defined at top of file)
+		for i = 1, #RADAR_INPUTS do
+			local input_config = RADAR_INPUTS[i]
 			if getBool(input_config.button) then
 				local distance = getNumber(input_config.number)
 				if distance and distance > MIN_DETECTION_DISTANCE then
@@ -309,9 +320,10 @@ function onTick()
 	SHIP_GPS_X = getNumber(31)
 	SHIP_GPS_Y = getNumber(32)
 	
-	-- Calculate radar sweep angle
+	-- Calculate radar sweep angle (inline Frac for performance)
 	local compass_value = getNumber(30)
-	RADAR_ANGLE = (Frac(compass_value) - COMPASS_INPUT - 0.25) * -6.28
+	local frac_compass = compass_value < 0 and (compass_value + math.floor(-compass_value)) or (compass_value - math.floor(compass_value))
+	RADAR_ANGLE = (frac_compass - COMPASS_INPUT - 0.25) * -6.28
 	RADAR_ENABLED = getBool(31)
 	
 	-- Read touch input
@@ -326,10 +338,10 @@ function onTick()
 	-- Calculate heading in degrees
 	SHIP_HEADING_DEGREES = (-COMPASS_INPUT * 360 + 360) % 360
 	
-	-- Handle UI button clicks
-	local zoom_in_button = IsPointInRectangle(TOUCH_X, TOUCH_Y, 0, SCREEN_HEIGHT - 50, 10, 10)
-	local zoom_out_button = IsPointInRectangle(TOUCH_X, TOUCH_Y, 0, SCREEN_HEIGHT - 60, 10, 10)
-	local reset_button = IsPointInRectangle(TOUCH_X, TOUCH_Y, SCREEN_WIDTH - 30, 0, 30, 10)
+	-- Handle UI button clicks (inline IsPointInRectangle for performance)
+	local zoom_in_button = TOUCH_X > 0 and TOUCH_Y > SCREEN_HEIGHT - 50 and TOUCH_X < 10 and TOUCH_Y < SCREEN_HEIGHT - 40
+	local zoom_out_button = TOUCH_X > 0 and TOUCH_Y > SCREEN_HEIGHT - 60 and TOUCH_X < 10 and TOUCH_Y < SCREEN_HEIGHT - 50
+	local reset_button = TOUCH_X > SCREEN_WIDTH - 30 and TOUCH_Y > 0 and TOUCH_X < SCREEN_WIDTH and TOUCH_Y < 10
 	
 	if TOUCH_ACTIVE and zoom_in_button then
 		ZOOM_IN_CLICKED = true
@@ -351,8 +363,12 @@ function onTick()
 		RESET_CLICKED = false
 	end
 	
-	-- Clamp zoom level
-	ZOOM = Clamp(ZOOM, ZOOM_MIN, ZOOM_MAX)
+	-- Clamp zoom level (inline Clamp for performance)
+	if ZOOM < ZOOM_MIN then
+		ZOOM = ZOOM_MIN
+	elseif ZOOM > ZOOM_MAX then
+		ZOOM = ZOOM_MAX
+	end
 	
 	-- Update counter for periodic tasks
 	-- Note: This counter increments and clamps to UPDATE_INTERVAL but is never reset or used.
