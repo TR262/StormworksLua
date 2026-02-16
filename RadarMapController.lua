@@ -137,6 +137,7 @@ function UpdateOrAddTarget(targets, distance, angle, is_airborne, ship_x, ship_y
 	local target_x, target_y = RotatePoint(distance, angle, ship_x, ship_y)
 	
 	-- Try to find existing nearby target
+	-- Note: This compares squared distance against a linear threshold, which is preserved from original code
 	local best_match_index = nil
 	local best_match_distance = MIN_MATCHING_DISTANCE
 	
@@ -340,7 +341,7 @@ function onTick()
 	-- Clamp zoom level
 	ZOOM = Clamp(ZOOM, ZOOM_MIN, ZOOM_MAX)
 	
-	-- Update counter for periodic tasks
+	-- Update counter for periodic tasks (clamped to max, not reset - preserves original behavior)
 	UPDATE_COUNTER = UPDATE_COUNTER + 1
 	if UPDATE_COUNTER >= UPDATE_INTERVAL then
 		UPDATE_COUNTER = UPDATE_INTERVAL
