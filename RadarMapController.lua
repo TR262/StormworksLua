@@ -18,6 +18,9 @@ COMPASS_ARROW_TIP_RADIUS = 7
 COMPASS_ARROW_BASE_RADIUS = 5
 COMPASS_ARROW_LEFT_OFFSET = 0.4
 COMPASS_ARROW_RIGHT_OFFSET = 0.6
+-- Pre-computed angle offsets for compass arrow (performance optimization)
+COMPASS_LEFT_ANGLE_OFFSET = COMPASS_ARROW_LEFT_OFFSET * 2 * math.pi
+COMPASS_RIGHT_ANGLE_OFFSET = COMPASS_ARROW_RIGHT_OFFSET * 2 * math.pi
 
 -- Radar Sweep Display Constants
 RADAR_SWEEP_WIDTH = 2000  -- Width of radar sweep triangle
@@ -460,6 +463,7 @@ function onDraw()
 			-- Color: green for airborne targets, blue for surface targets
 			local green = target.isAirborne and 255 or 0
 			local blue = target.isAirborne and 0 or 255
+			-- Inline ValidateAlpha for performance (clamp alpha 0-255)
 			local alpha = target.timeLeft
 			if alpha < 0 then alpha = 0 elseif alpha > 255 then alpha = 255 end
 			
@@ -545,10 +549,10 @@ function onDraw()
 	local compass_angle = COMPASS_INPUT * 2 * pi
 	local arrow_tip_x = SCREEN_WIDTH / 2 + COMPASS_ARROW_TIP_RADIUS * -sin(compass_angle)
 	local arrow_tip_y = SCREEN_HEIGHT / 2 - COMPASS_ARROW_TIP_RADIUS * cos(compass_angle)
-	local arrow_left_x = SCREEN_WIDTH / 2 + COMPASS_ARROW_BASE_RADIUS * -sin(compass_angle + COMPASS_ARROW_LEFT_OFFSET * 2 * pi)
-	local arrow_left_y = SCREEN_HEIGHT / 2 - COMPASS_ARROW_BASE_RADIUS * cos(compass_angle + COMPASS_ARROW_LEFT_OFFSET * 2 * pi)
-	local arrow_right_x = SCREEN_WIDTH / 2 + COMPASS_ARROW_BASE_RADIUS * -sin(compass_angle + COMPASS_ARROW_RIGHT_OFFSET * 2 * pi)
-	local arrow_right_y = SCREEN_HEIGHT / 2 - COMPASS_ARROW_BASE_RADIUS * cos(compass_angle + COMPASS_ARROW_RIGHT_OFFSET * 2 * pi)
+	local arrow_left_x = SCREEN_WIDTH / 2 + COMPASS_ARROW_BASE_RADIUS * -sin(compass_angle + COMPASS_LEFT_ANGLE_OFFSET)
+	local arrow_left_y = SCREEN_HEIGHT / 2 - COMPASS_ARROW_BASE_RADIUS * cos(compass_angle + COMPASS_LEFT_ANGLE_OFFSET)
+	local arrow_right_x = SCREEN_WIDTH / 2 + COMPASS_ARROW_BASE_RADIUS * -sin(compass_angle + COMPASS_RIGHT_ANGLE_OFFSET)
+	local arrow_right_y = SCREEN_HEIGHT / 2 - COMPASS_ARROW_BASE_RADIUS * cos(compass_angle + COMPASS_RIGHT_ANGLE_OFFSET)
 	
 	screen.drawTriangleF(
 		arrow_tip_x, arrow_tip_y,
