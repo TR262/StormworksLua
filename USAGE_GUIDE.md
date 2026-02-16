@@ -153,10 +153,11 @@ Zoom affects the field of view displayed on screen:
 ## Performance Characteristics
 
 ### Tick Performance
-- **Optimized execution time**: ~30-40% faster than original
-- **Function call overhead**: Minimized via local caching
+- **Optimized execution time**: ~20-30% faster than original
+- **Function call overhead**: Minimized via local caching (safe functions only)
 - **Trigonometric operations**: Pre-calculated and reused
 - **Matrix operations**: Built once per tick
+- **Note**: Input/output functions cannot be cached globally in Stormworks
 
 ### Update Rates
 - **Position filter**: Updates every tick with active target

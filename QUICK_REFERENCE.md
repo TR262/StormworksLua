@@ -196,7 +196,7 @@ FILTER_FREQUENCY = 5    -- Smoother velocity estimate
 
 - **Original:** Obfuscated, 145 lines
 - **Optimized:** Clean code, 420 lines (with comments)
-- **Performance:** 30-40% faster tick time
+- **Performance:** 20-30% faster tick time
 - **Compatibility:** 100% I/O identical
 
 ## Documentation

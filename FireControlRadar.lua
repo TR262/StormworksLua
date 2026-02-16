@@ -13,10 +13,7 @@ local FILTER_DAMPING = 0.1
 local FILTER_FREQUENCY = 3
 
 -- Cached functions for performance
-local input_getBool = input.getBool
-local input_getNumber = input.getNumber
-local output_setBool = output.setBool
-local output_setNumber = output.setNumber
+-- Note: input/output functions cannot be cached at global scope in Stormworks
 local screen_setColor = screen.setColor
 local screen_drawRectF = screen.drawRectF
 local screen_drawRect = screen.drawRect
@@ -121,14 +118,14 @@ end
 -- Main tick function - runs every game tick
 function onTick()
     -- Read base position and orientation
-    local base_x = input_getNumber(4)
-    local base_y = input_getNumber(12)
-    local base_z = input_getNumber(8)
-    local pitch = input_getNumber(16)
-    local yaw = input_getNumber(24)
-    local roll = input_getNumber(20)
-    local zoom = input_getNumber(28)
-    local track_mode = input_getBool(9)
+    local base_x = input.getNumber(4)
+    local base_y = input.getNumber(12)
+    local base_z = input.getNumber(8)
+    local pitch = input.getNumber(16)
+    local yaw = input.getNumber(24)
+    local roll = input.getNumber(20)
+    local zoom = input.getNumber(28)
+    local track_mode = input.getBool(9)
     
     -- Build rotation matrices once
     local rotation_matrix = buildRotationMatrix(pitch, roll, yaw)
@@ -143,16 +140,16 @@ function onTick()
     local target_active = {}
     
     for i = 1, 8 do
-        local is_active = input_getBool(i)
+        local is_active = input.getBool(i)
         target_active[i] = is_active
         
         if is_active then
             active_targets = active_targets + 1
             
             -- Read target data
-            local distance = input_getNumber(4 * i - 3)
-            local azimuth = input_getNumber(4 * i - 2) * TWO_PI
-            local elevation = input_getNumber(4 * i - 1) * TWO_PI
+            local distance = input.getNumber(4 * i - 3)
+            local azimuth = input.getNumber(4 * i - 2) * TWO_PI
+            local elevation = input.getNumber(4 * i - 1) * TWO_PI
             
             -- Convert spherical to Cartesian coordinates
             local cos_elev = math_cos(elevation)
@@ -228,13 +225,13 @@ function onTick()
     
     -- Output filtered position and velocity
     if target_active[1] then
-        output_setNumber(1, filter_x.filtered_position)
-        output_setNumber(2, filter_y.filtered_position)
-        output_setNumber(3, filter_z.filtered_position)
-        output_setNumber(4, filter_x.velocity)
-        output_setNumber(5, filter_y.velocity)
-        output_setNumber(6, filter_z.velocity)
-        output_setBool(2, property_getBool("use Proximity Fuze"))
+        output.setNumber(1, filter_x.filtered_position)
+        output.setNumber(2, filter_y.filtered_position)
+        output.setNumber(3, filter_z.filtered_position)
+        output.setNumber(4, filter_x.velocity)
+        output.setNumber(5, filter_y.velocity)
+        output.setNumber(6, filter_z.velocity)
+        output.setBool(2, property_getBool("use Proximity Fuze"))
     end
     
     -- Transform filtered position to local coordinates for display
@@ -247,8 +244,8 @@ function onTick()
     
     -- Output heading angles
     local horizontal_dist = math_sqrt(local_x * local_x + local_y * local_y)
-    output_setNumber(31, math_atan(local_z, horizontal_dist) / TWO_PI)
-    output_setNumber(32, math_atan(local_x, local_y) / TWO_PI)
+    output.setNumber(31, math_atan(local_z, horizontal_dist) / TWO_PI)
+    output.setNumber(32, math_atan(local_x, local_y) / TWO_PI)
     
     -- Update history for display
     local current_distance = distance3D(
@@ -275,14 +272,14 @@ function onDraw()
     local height = screen_getHeight()
     
     -- Read current state for display
-    local base_x = input_getNumber(4)
-    local base_y = input_getNumber(12)
-    local base_z = input_getNumber(8)
-    local pitch = input_getNumber(16)
-    local yaw = input_getNumber(24)
-    local roll = input_getNumber(20)
-    local zoom = input_getNumber(28)
-    local track_mode = input_getBool(9)
+    local base_x = input.getNumber(4)
+    local base_y = input.getNumber(12)
+    local base_z = input.getNumber(8)
+    local pitch = input.getNumber(16)
+    local yaw = input.getNumber(24)
+    local roll = input.getNumber(20)
+    local zoom = input.getNumber(28)
+    local track_mode = input.getBool(9)
     
     -- Calculate zoom-adjusted field of view
     local fov_scale = 132 * (1 - zoom) + 1.5 * zoom
@@ -337,9 +334,9 @@ function onDraw()
     
     -- Draw all active targets
     for i = 1, 8 do
-        if input_getBool(i) then
-            local azimuth = input_getNumber(4 * i - 2) * TWO_PI
-            local elevation = input_getNumber(4 * i - 1) * TWO_PI
+        if input.getBool(i) then
+            local azimuth = input.getNumber(4 * i - 2) * TWO_PI
+            local elevation = input.getNumber(4 * i - 1) * TWO_PI
             
             if azimuth + elevation ~= 0 then
                 local target_x = width / 2 + height * azimuth / (fov_scale * PI / FOV_BASE)
@@ -399,15 +396,15 @@ function onDraw()
     -- Draw target range markers
     screen_setColor(COLOR_MAX, COLOR_MAX, 0)
     for i = 1, 8 do
-        if input_getBool(i) then
-            local distance = input_getNumber(4 * i - 3)
+        if input.getBool(i) then
+            local distance = input.getNumber(4 * i - 3)
             local base_distance = distance3D(
                 filter_x.filtered_position - base_x,
                 filter_y.filtered_position - base_y,
                 filter_z.filtered_position - base_z
             )
-            local azimuth = input_getNumber(4 * i - 2) * TWO_PI
-            local elevation = input_getNumber(4 * i - 1) * TWO_PI
+            local azimuth = input.getNumber(4 * i - 2) * TWO_PI
+            local elevation = input.getNumber(4 * i - 1) * TWO_PI
             
             local ratio = distance / base_distance
             if ratio <= 1.05 then

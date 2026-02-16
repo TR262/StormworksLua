@@ -29,15 +29,15 @@ This document verifies that the optimized FireControlRadar.lua maintains 100% co
 
 | Original Variable | Optimized Variable | Output Index | Description |
 |------------------|-------------------|--------------|-------------|
-| x(1, i.a) | output_setNumber(1, filter_x.filtered_position) | 1 | Filtered target X |
-| x(2, f.a) | output_setNumber(2, filter_y.filtered_position) | 2 | Filtered target Y |
-| x(3, h.a) | output_setNumber(3, filter_z.filtered_position) | 3 | Filtered target Z |
-| x(4, i.k) | output_setNumber(4, filter_x.velocity) | 4 | Target velocity X |
-| x(5, f.k) | output_setNumber(5, filter_y.velocity) | 5 | Target velocity Y |
-| x(6, h.k) | output_setNumber(6, filter_z.velocity) | 6 | Target velocity Z |
-| x(31, ...) | output_setNumber(31, elevation_angle) | 31 | Target elevation |
-| x(32, ...) | output_setNumber(32, azimuth_angle) | 32 | Target azimuth |
-| as.setBool(2, property.getBool(...)) | output_setBool(2, property_getBool("use Proximity Fuze")) | 2 (Bool) | Proximity fuze |
+| x(1, i.a) | output.setNumber(1, filter_x.filtered_position) | 1 | Filtered target X |
+| x(2, f.a) | output.setNumber(2, filter_y.filtered_position) | 2 | Filtered target Y |
+| x(3, h.a) | output.setNumber(3, filter_z.filtered_position) | 3 | Filtered target Z |
+| x(4, i.k) | output.setNumber(4, filter_x.velocity) | 4 | Target velocity X |
+| x(5, f.k) | output.setNumber(5, filter_y.velocity) | 5 | Target velocity Y |
+| x(6, h.k) | output.setNumber(6, filter_z.velocity) | 6 | Target velocity Z |
+| x(31, ...) | output.setNumber(31, elevation_angle) | 31 | Target elevation |
+| x(32, ...) | output.setNumber(32, azimuth_angle) | 32 | Target azimuth |
+| as.setBool(2, property.getBool(...)) | output.setBool(2, property_getBool("use Proximity Fuze")) | 2 (Bool) | Proximity fuze |
 
 ✅ **All outputs preserved exactly**
 

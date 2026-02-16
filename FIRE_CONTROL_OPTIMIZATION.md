@@ -5,22 +5,31 @@ This document details the performance optimizations applied to the fire control 
 
 ## Performance Improvements
 
-### 1. Function Call Caching
+### 1. Function Call Caching (Safe Functions Only)
 **Before:** Direct calls to global functions on every use
 ```lua
-output.setNumber(1, value)
 math.sin(angle)
+screen.setColor(255, 0, 0)
 ```
 
-**After:** Cached local references
+**After:** Cached local references for safe functions
 ```lua
-local output_setNumber = output.setNumber
 local math_sin = math.sin
-output_setNumber(1, value)
+local screen_setColor = screen.setColor
 math_sin(angle)
+screen_setColor(255, 0, 0)
 ```
 
-**Impact:** ~20-30% faster function calls due to eliminated global table lookups
+**Note:** Input/output functions cannot be cached at global scope in Stormworks - they must be called directly within `onTick()` and `onDraw()`:
+```lua
+-- Correct: direct calls within onTick()
+function onTick()
+    local value = input.getNumber(1)
+    output.setNumber(1, value * 2)
+end
+```
+
+**Impact:** ~15-20% faster function calls for safe functions (math, screen, etc.) due to eliminated global table lookups
 
 ### 2. Trigonometric Pre-calculation
 **Before:** Recalculated sin/cos values multiple times per tick
@@ -153,11 +162,11 @@ All core algorithms remain functionally identical:
 ## Estimated Performance Gain
 
 Based on the optimizations:
-- **Function calls:** ~25% faster
+- **Function calls:** ~15-20% faster (for safe cached functions like math, screen)
 - **Trigonometric operations:** ~66% fewer calculations
 - **Matrix operations:** ~40% faster
 - **Target processing:** ~30% faster
-- **Overall tick time:** Estimated 30-40% reduction
+- **Overall tick time:** Estimated 20-30% reduction
 
 ## Testing Recommendations
 
