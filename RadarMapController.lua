@@ -256,7 +256,8 @@ end
 
 --- Draw a single radar target (kept for documentation, inlined in onDraw for performance)
 --- @param target table Target data
---- Performance Note: This function is inlined in onDraw to avoid function call overhead
+--- Performance Note: This is the reference implementation. The inlined version in onDraw
+--- should match this logic exactly. Update both if changes are needed.
 function DrawTarget(target)
 	local target_x, target_y = RotatePoint(target.distance, target.angle, SHIP_GPS_X, SHIP_GPS_Y)
 	local screen_x, screen_y = mapToScreen(SHIP_GPS_X, SHIP_GPS_Y, ZOOM, SCREEN_WIDTH, SCREEN_HEIGHT, target_x, target_y)
@@ -271,12 +272,14 @@ function DrawTarget(target)
 	drawCircleF(screen_x, screen_y, 1.5)
 end
 
---- Draw a labeled point on the map
+--- Draw a labeled point on the map (kept for documentation, inlined in onDraw for performance)
 --- @param world_x number World X coordinate
 --- @param world_y number World Y coordinate
 --- @param label string Text label
 --- @param color table RGBA color {r, g, b, a}
 --- @param use_rect boolean Draw rectangle instead of circle
+--- Performance Note: This is the reference implementation. The inlined version in onDraw
+--- should match this logic exactly. Update both if changes are needed.
 function DrawLabeledPoint(world_x, world_y, label, color, use_rect)
 	if world_x == 0 or world_y == 0 then
 		return
@@ -324,6 +327,7 @@ function onTick()
 	SHIP_GPS_Y = getNumber(32)
 	
 	-- Calculate radar sweep angle (inline Frac for performance)
+	-- Frac extracts fractional part: handles negative values by adding floor of absolute value
 	local compass_value = getNumber(30)
 	local frac_compass = compass_value < 0 and (compass_value + math.floor(-compass_value)) or (compass_value - math.floor(compass_value))
 	RADAR_ANGLE = (frac_compass - COMPASS_INPUT - 0.25) * -6.28
