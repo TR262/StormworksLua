@@ -13,6 +13,12 @@ SMOOTHING_OLD = 0.3
 SMOOTHING_NEW = 0.7
 UPDATE_INTERVAL = 30
 
+-- Compass Arrow Display Constants
+COMPASS_ARROW_TIP_RADIUS = 7
+COMPASS_ARROW_BASE_RADIUS = 5
+COMPASS_ARROW_LEFT_OFFSET = 0.4
+COMPASS_ARROW_RIGHT_OFFSET = 0.6
+
 -- Global State
 TRACKED_TARGETS = {}
 NEXT_TARGET_INDEX = 1
@@ -227,8 +233,8 @@ function DrawTarget(target)
 	local target_x, target_y = RotatePoint(target.distance, target.angle, SHIP_GPS_X, SHIP_GPS_Y)
 	local screen_x, screen_y = mapToScreen(SHIP_GPS_X, SHIP_GPS_Y, ZOOM, SCREEN_WIDTH, SCREEN_HEIGHT, target_x, target_y)
 	
-	-- Color: blue for surface targets, red for airborne
-	local red = target.isAirborne and 0 or 0
+	-- Color: green for airborne targets, blue for surface targets
+	local red = 0
 	local green = target.isAirborne and 255 or 0
 	local blue = target.isAirborne and 0 or 255
 	local alpha = ValidateAlpha(target.timeLeft)
@@ -269,7 +275,7 @@ end
 --- @param rw number Rectangle width
 --- @param rh number Rectangle height
 --- @return boolean True if point is inside rectangle
-function isPointInRectangle(px, py, rx, ry, rw, rh)
+function IsPointInRectangle(px, py, rx, ry, rw, rh)
 	return px > rx and py > ry and px < rx + rw and py < ry + rh
 end
 
@@ -307,9 +313,9 @@ function onTick()
 	SHIP_HEADING_DEGREES = (-COMPASS_INPUT * 360 + 360) % 360
 	
 	-- Handle UI button clicks
-	local zoom_in_button = isPointInRectangle(TOUCH_X, TOUCH_Y, 0, SCREEN_HEIGHT - 50, 10, 10)
-	local zoom_out_button = isPointInRectangle(TOUCH_X, TOUCH_Y, 0, SCREEN_HEIGHT - 60, 10, 10)
-	local reset_button = isPointInRectangle(TOUCH_X, TOUCH_Y, SCREEN_WIDTH - 30, 0, 30, 10)
+	local zoom_in_button = IsPointInRectangle(TOUCH_X, TOUCH_Y, 0, SCREEN_HEIGHT - 50, 10, 10)
+	local zoom_out_button = IsPointInRectangle(TOUCH_X, TOUCH_Y, 0, SCREEN_HEIGHT - 60, 10, 10)
+	local reset_button = IsPointInRectangle(TOUCH_X, TOUCH_Y, SCREEN_WIDTH - 30, 0, 30, 10)
 	
 	if TOUCH_ACTIVE and zoom_in_button then
 		ZOOM_IN_CLICKED = true
@@ -457,12 +463,12 @@ function onDraw()
 	
 	-- Draw heading indicator (compass arrow)
 	screen.setColor(16, 16, 16, 245)
-	local arrow_tip_x = SCREEN_WIDTH / 2 + 7 * -sin(COMPASS_INPUT * 2 * pi)
-	local arrow_tip_y = SCREEN_HEIGHT / 2 - 7 * cos(COMPASS_INPUT * 2 * pi)
-	local arrow_left_x = SCREEN_WIDTH / 2 + 5 * -sin((COMPASS_INPUT + 0.4) * 2 * pi)
-	local arrow_left_y = SCREEN_HEIGHT / 2 - 5 * cos((COMPASS_INPUT + 0.4) * 2 * pi)
-	local arrow_right_x = SCREEN_WIDTH / 2 + 5 * -sin((COMPASS_INPUT + 0.6) * 2 * pi)
-	local arrow_right_y = SCREEN_HEIGHT / 2 - 5 * cos((COMPASS_INPUT + 0.6) * 2 * pi)
+	local arrow_tip_x = SCREEN_WIDTH / 2 + COMPASS_ARROW_TIP_RADIUS * -sin(COMPASS_INPUT * 2 * pi)
+	local arrow_tip_y = SCREEN_HEIGHT / 2 - COMPASS_ARROW_TIP_RADIUS * cos(COMPASS_INPUT * 2 * pi)
+	local arrow_left_x = SCREEN_WIDTH / 2 + COMPASS_ARROW_BASE_RADIUS * -sin((COMPASS_INPUT + COMPASS_ARROW_LEFT_OFFSET) * 2 * pi)
+	local arrow_left_y = SCREEN_HEIGHT / 2 - COMPASS_ARROW_BASE_RADIUS * cos((COMPASS_INPUT + COMPASS_ARROW_LEFT_OFFSET) * 2 * pi)
+	local arrow_right_x = SCREEN_WIDTH / 2 + COMPASS_ARROW_BASE_RADIUS * -sin((COMPASS_INPUT + COMPASS_ARROW_RIGHT_OFFSET) * 2 * pi)
+	local arrow_right_y = SCREEN_HEIGHT / 2 - COMPASS_ARROW_BASE_RADIUS * cos((COMPASS_INPUT + COMPASS_ARROW_RIGHT_OFFSET) * 2 * pi)
 	
 	screen.drawTriangleF(
 		arrow_tip_x, arrow_tip_y,
