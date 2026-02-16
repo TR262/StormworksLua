@@ -190,12 +190,12 @@ function onTick()
     local min_distance = math.huge
     
     if track_mode then
-        -- Track closest target to predicted position
+        -- Track closest target to current filtered position
         for i = 1, active_targets do
             local t = targets[i]
-            local dx = t.x - filter_x.position
-            local dy = t.y - filter_y.position
-            local dz = t.z - filter_z.position
+            local dx = t.x - filter_x.filtered_position
+            local dy = t.y - filter_y.filtered_position
+            local dz = t.z - filter_z.filtered_position
             local dist = math_sqrt(dx * dx + dy * dy + dz * dz)
             
             if dist < min_distance then
