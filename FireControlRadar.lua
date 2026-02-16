@@ -86,9 +86,10 @@ local function createFilter(mass, damping, frequency)
             self.velocity = self.velocity + (alpha / 5) * error / self.frequency
             self.mass = (1 - alpha) * self.mass
             
-            -- Prevent mass from collapsing (causes oscillations/instability)
-            if self.mass < 1 then
-                self.mass = 1
+            -- Prevent mass from getting too small (causes oscillations/instability)
+            -- Higher floor = more stable but slightly less responsive
+            if self.mass < 10 then
+                self.mass = 10
             end
         end
     }
