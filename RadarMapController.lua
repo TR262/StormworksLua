@@ -19,6 +19,9 @@ COMPASS_ARROW_BASE_RADIUS = 5
 COMPASS_ARROW_LEFT_OFFSET = 0.4
 COMPASS_ARROW_RIGHT_OFFSET = 0.6
 
+-- Radar Sweep Display Constants
+RADAR_SWEEP_WIDTH = 2000  -- Width of radar sweep triangle
+
 -- Global State
 TRACKED_TARGETS = {}
 NEXT_TARGET_INDEX = 1
@@ -137,7 +140,11 @@ function UpdateOrAddTarget(targets, distance, angle, is_airborne, ship_x, ship_y
 	local target_x, target_y = RotatePoint(distance, angle, ship_x, ship_y)
 	
 	-- Try to find existing nearby target
-	-- Note: This compares squared distance against a linear threshold, which is preserved from original code
+	-- Note: This compares squared distance (dist_sq) against a linear threshold (MIN_MATCHING_DISTANCE).
+	-- This is preserved from the original code and creates unusual matching behavior where the effective
+	-- matching threshold is the square root of MIN_MATCHING_DISTANCE (√150 ≈ 12.2 units).
+	-- To fix this properly, initialize best_match_distance = MIN_MATCHING_DISTANCE * MIN_MATCHING_DISTANCE,
+	-- but keeping original behavior for compatibility.
 	local best_match_index = nil
 	local best_match_distance = MIN_MATCHING_DISTANCE
 	
@@ -341,7 +348,9 @@ function onTick()
 	-- Clamp zoom level
 	ZOOM = Clamp(ZOOM, ZOOM_MIN, ZOOM_MAX)
 	
-	-- Update counter for periodic tasks (clamped to max, not reset - preserves original behavior)
+	-- Update counter for periodic tasks
+	-- Note: This counter increments and clamps to UPDATE_INTERVAL but is never reset or used.
+	-- Preserved from original code - purpose unclear, possibly for future use or legacy code.
 	UPDATE_COUNTER = UPDATE_COUNTER + 1
 	if UPDATE_COUNTER >= UPDATE_INTERVAL then
 		UPDATE_COUNTER = UPDATE_INTERVAL
@@ -373,7 +382,7 @@ function onDraw()
 	if RADAR_ENABLED then
 		-- Calculate radar sweep endpoint
 		local radar_end_x, radar_end_y = RotatePoint(RADAR_RANGE, RADAR_ANGLE, SHIP_GPS_X, SHIP_GPS_Y)
-		local radar_edge_x, radar_edge_y = RotatePoint(RADAR_RANGE, RADAR_ANGLE + 2000 / RADAR_RANGE, SHIP_GPS_X, SHIP_GPS_Y)
+		local radar_edge_x, radar_edge_y = RotatePoint(RADAR_RANGE, RADAR_ANGLE + RADAR_SWEEP_WIDTH / RADAR_RANGE, SHIP_GPS_X, SHIP_GPS_Y)
 		
 		local radar_screen_x, radar_screen_y = mapToScreen(
 			SHIP_GPS_X, SHIP_GPS_Y, ZOOM,
