@@ -68,15 +68,29 @@ headingDegrees = 0
 rwrWarning = false
 
 -- === LOCAL FUNCTION REFERENCES (performance optimization) ===
+-- Caching globals as locals avoids repeated table lookups each tick
 local cos = math.cos
 local sin = math.sin
 local sqrt = math.sqrt
+local floor = math.floor
 local pi = math.pi
 local mapToScreen = map.mapToScreen
 local getNumber = input.getNumber
 local getBool = input.getBool
+local setColor = screen.setColor
 local drawCircle = screen.drawCircle
 local drawCircleF = screen.drawCircleF
+local drawRect = screen.drawRect
+local drawRectF = screen.drawRectF
+local drawText = screen.drawText
+local drawTextBox = screen.drawTextBox
+local drawTriangleF = screen.drawTriangleF
+local drawMap = screen.drawMap
+local getWidth = screen.getWidth
+local getHeight = screen.getHeight
+local setBool = output.setBool
+local format = string.format
+local tblRemove = table.remove
 
 -- ============================================================
 -- UTILITY FUNCTIONS
@@ -90,9 +104,9 @@ end
 --- Returns the fractional part of a number (always positive)
 function fractionalPart(value)
 	if value < 0 then
-		return value + math.floor(-value)
+		return value + floor(-value)
 	end
-	return value - math.floor(value)
+	return value - floor(value)
 end
 
 --- Converts polar coordinates to cartesian, offset from an origin
@@ -188,7 +202,7 @@ function updateTargets(targetList, originX, originY, currentRadarAngle, isRadarA
 		local target = targetList[idx]
 		target.timeLeft = target.timeLeft - 1
 		if target.timeLeft <= 0 then
-			table.remove(targetList, idx)
+			tblRemove(targetList, idx)
 		end
 	end
 end
@@ -205,7 +219,7 @@ function drawTargetBlip(target)
 	local colorGreen = target.isAirborne and 255 or 0
 	local colorBlue = target.isAirborne and 0 or 255
 	local alpha = clampAlpha(target.timeLeft)
-	screen.setColor(colorRed, colorGreen, colorBlue, alpha)
+	setColor(colorRed, colorGreen, colorBlue, alpha)
 	drawCircleF(pixelX, pixelY, 1.5)
 end
 
@@ -215,14 +229,14 @@ function drawMarker(worldX, worldY, label, color, isSquareMarker)
 		return
 	end
 	local pixelX, pixelY = mapToScreen(gpsX, gpsY, zoom, screenWidth, screenHeight, worldX, worldY)
-	screen.setColor(color[1], color[2], color[3], color[4])
+	setColor(color[1], color[2], color[3], color[4])
 	if isSquareMarker then
-		screen.drawRectF(pixelX - 2, pixelY - 1, 3, 3)
+		drawRectF(pixelX - 2, pixelY - 1, 3, 3)
 	else
 		drawCircleF(pixelX, pixelY, 2)
 	end
-	screen.drawRect(pixelX - 4, pixelY - 4, 6, 6)
-	screen.drawText(pixelX + 6, pixelY + (isSquareMarker and 3 or -5), label)
+	drawRect(pixelX - 4, pixelY - 4, 6, 6)
+	drawText(pixelX + 6, pixelY + (isSquareMarker and 3 or -5), label)
 end
 
 --- Checks if a point is inside a rectangle
@@ -250,7 +264,7 @@ function onTick()
 
 	-- Calculate radar angle from heading
 	local rawHeading = getNumber(30)
-	local headingFraction = rawHeading < 0 and rawHeading + math.floor(-rawHeading) or rawHeading - math.floor(rawHeading)
+	local headingFraction = rawHeading < 0 and rawHeading + floor(-rawHeading) or rawHeading - floor(rawHeading)
 	radarAngle = (headingFraction - compassHeading - 0.25) * -6.28
 
 	-- Read radar state
@@ -308,7 +322,7 @@ function onTick()
 	updateTargets(targets, gpsX, gpsY, radarAngle, radarActive)
 
 	-- Output radar toggle state
-	output.setBool(24, radarTogglePressed)
+	setBool(24, radarTogglePressed)
 end
 
 -- ============================================================
@@ -316,11 +330,11 @@ end
 -- ============================================================
 
 function onDraw()
-	screenWidth = screen.getWidth()
-	screenHeight = screen.getHeight()
+	screenWidth = getWidth()
+	screenHeight = getHeight()
 
 	-- Draw the map background
-	screen.drawMap(gpsX, gpsY, zoom)
+	drawMap(gpsX, gpsY, zoom)
 
 	-- Get ship's position on screen
 	local centerPixelX, centerPixelY = mapToScreen(gpsX, gpsY, zoom, screenWidth, screenHeight, gpsX, gpsY)
@@ -345,19 +359,19 @@ function onDraw()
 		local radarPixelRadius = sqrt(deltaX * deltaX + deltaY * deltaY)
 
 		-- Draw filled radar circle
-		screen.setColor(0, 225, 0, 5)
+		setColor(0, 225, 0, 5)
 		drawCircleF(centerPixelX, centerPixelY, radarPixelRadius)
 
 		-- Draw range rings
-		screen.setColor(0, 225, 0, 10)
+		setColor(0, 225, 0, 10)
 		for fraction = 0.125, 0.875, 0.125 do
 			drawCircle(centerPixelX, centerPixelY, radarPixelRadius * fraction)
 		end
 
 		-- Draw radar sweep cone
 		local conePixelX, conePixelY = mapToScreen(gpsX, gpsY, zoom, screenWidth, screenHeight, coneEndWorldX, coneEndWorldY)
-		screen.setColor(0, 225, 0, 30)
-		screen.drawTriangleF(centerPixelX, centerPixelY + 1, radarEndPixelX, radarEndPixelY + 2, conePixelX, conePixelY + 3)
+		setColor(0, 225, 0, 30)
+		drawTriangleF(centerPixelX, centerPixelY + 1, radarEndPixelX, radarEndPixelY + 2, conePixelX, conePixelY + 3)
 
 		-- Draw all radar targets
 		for idx = 1, #targets do
@@ -377,7 +391,7 @@ function onDraw()
 				alpha = 255
 			end
 
-			screen.setColor(0, colorGreen, colorBlue, alpha)
+			setColor(0, colorGreen, colorBlue, alpha)
 			drawCircleF(targetPixelX, targetPixelY, 1.5)
 		end
 	end
@@ -386,76 +400,76 @@ function onDraw()
 	-- SSM (Ship-to-Ship Missile) marker
 	if ssmX ~= 0 and ssmY ~= 0 then
 		local pixelX, pixelY = mapToScreen(gpsX, gpsY, zoom, screenWidth, screenHeight, ssmX, ssmY)
-		screen.setColor(100, 100, 0, 220)
+		setColor(100, 100, 0, 220)
 		drawCircleF(pixelX, pixelY, 2)
-		screen.drawRect(pixelX - 4, pixelY - 4, 6, 6)
-		screen.drawText(pixelX + 6, pixelY - 5, "SSM")
+		drawRect(pixelX - 4, pixelY - 4, 6, 6)
+		drawText(pixelX + 6, pixelY - 5, "SSM")
 	end
 
 	-- GUN marker
 	if gunX ~= 0 and gunY ~= 0 then
 		local pixelX, pixelY = mapToScreen(gpsX, gpsY, zoom, screenWidth, screenHeight, gunX, gunY)
-		screen.setColor(0, 225, 0, 50)
-		screen.drawRectF(pixelX - 2, pixelY - 1, 3, 3)
-		screen.drawRect(pixelX - 4, pixelY - 4, 6, 6)
-		screen.drawText(pixelX + 6, pixelY + 3, "GUN")
+		setColor(0, 225, 0, 50)
+		drawRectF(pixelX - 2, pixelY - 1, 3, 3)
+		drawRect(pixelX - 4, pixelY - 4, 6, 6)
+		drawText(pixelX + 6, pixelY + 3, "GUN")
 	end
 
 	-- SAM (Surface-to-Air Missile) marker
 	if samX ~= 0 and samY ~= 0 then
 		local pixelX, pixelY = mapToScreen(gpsX, gpsY, zoom, screenWidth, screenHeight, samX, samY)
-		screen.setColor(0, 225, 0, 50)
-		screen.drawRectF(pixelX - 2, pixelY - 1, 3, 3)
-		screen.drawRect(pixelX - 4, pixelY - 4, 6, 6)
-		screen.drawText(pixelX + 6, pixelY + 3, "SAM")
+		setColor(0, 225, 0, 50)
+		drawRectF(pixelX - 2, pixelY - 1, 3, 3)
+		drawRect(pixelX - 4, pixelY - 4, 6, 6)
+		drawText(pixelX + 6, pixelY + 3, "SAM")
 	end
 
 	-- === UI BUTTONS ===
 	-- Zoom +/- buttons (bottom left)
-	screen.setColor(128, 128, 128, 55)
-	screen.drawRectF(1, screenHeight - 60, 7, 20)
-	screen.drawRectF(screenWidth - 35, 0, 36, 10)
+	setColor(128, 128, 128, 55)
+	drawRectF(1, screenHeight - 60, 7, 20)
+	drawRectF(screenWidth - 35, 0, 36, 10)
 
-	screen.setColor(0, 0, 0, 150)
-	screen.drawTextBox(0, screenHeight - 60, 10, 10, "+", 0, 0)
-	screen.drawTextBox(0, screenHeight - 50, 10, 10, "-", 0, 0)
+	setColor(0, 0, 0, 150)
+	drawTextBox(0, screenHeight - 60, 10, 10, "+", 0, 0)
+	drawTextBox(0, screenHeight - 50, 10, 10, "-", 0, 0)
 
 	-- Radar status indicator (top right)
 	if radarActive then
-		screen.drawTextBox(screenWidth - 35, 0, 35, 10, "RADAR", 0, 0)
-		screen.setColor(0, 128, 0, 75)
-		screen.drawTextBox(screenWidth - 35, 0, 35, 10, "RADAR", 0, 0)
+		drawTextBox(screenWidth - 35, 0, 35, 10, "RADAR", 0, 0)
+		setColor(0, 128, 0, 75)
+		drawTextBox(screenWidth - 35, 0, 35, 10, "RADAR", 0, 0)
 	else
-		screen.setColor(128, 0, 0, 75)
-		screen.drawTextBox(screenWidth - 35, 0, 35, 10, "RADAR", 0, 0)
+		setColor(128, 0, 0, 75)
+		drawTextBox(screenWidth - 35, 0, 35, 10, "RADAR", 0, 0)
 	end
 
 	-- === INFO PANEL (top left) ===
-	screen.setColor(128, 128, 128, 55)
-	screen.drawRectF(0, 0, 42, 35)
+	setColor(128, 128, 128, 55)
+	drawRectF(0, 0, 42, 35)
 
-	screen.setColor(0, 0, 0, 125)
-	screen.drawText(1, 29, "RWR ")
-	screen.drawText(1, 1, "X ")
-	screen.drawText(1, 8, "Y ")
-	screen.drawText(1, 15, "SPD ")
-	screen.drawText(1, 22, "HDG ")
-	screen.drawText(1, 1, "  " .. string.format("%.0f", gpsX))
-	screen.drawText(1, 8, "  " .. string.format("%.0f", gpsY))
-	screen.drawText(1, 15, "    " .. string.format("%.0f", speed))
-	screen.drawText(1, 22, "    " .. string.format("%.0f", headingDegrees))
+	setColor(0, 0, 0, 125)
+	drawText(1, 29, "RWR ")
+	drawText(1, 1, "X ")
+	drawText(1, 8, "Y ")
+	drawText(1, 15, "SPD ")
+	drawText(1, 22, "HDG ")
+	drawText(1, 1, "  " .. format("%.0f", gpsX))
+	drawText(1, 8, "  " .. format("%.0f", gpsY))
+	drawText(1, 15, "    " .. format("%.0f", speed))
+	drawText(1, 22, "    " .. format("%.0f", headingDegrees))
 
 	-- RWR warning indicator
 	if rwrWarning then
-		screen.setColor(255, 0, 0, 150)
-		screen.drawText(1, 29, "    " .. "WARN")
+		setColor(255, 0, 0, 150)
+		drawText(1, 29, "    " .. "WARN")
 	else
-		screen.setColor(0, 0, 0, 55)
-		screen.drawText(1, 29, "    " .. "WARN")
+		setColor(0, 0, 0, 55)
+		drawText(1, 29, "    " .. "WARN")
 	end
 
 	-- === COMPASS / SHIP HEADING INDICATOR (center) ===
-	screen.setColor(16, 16, 16, 245)
+	setColor(16, 16, 16, 245)
 	local headingAngle = compassHeading * 2 * pi
 	local compassTipX = screenWidth / 2 + COMPASS_OUTER_RADIUS * -sin(headingAngle)
 	local compassTipY = screenHeight / 2 - COMPASS_OUTER_RADIUS * cos(headingAngle)
@@ -463,5 +477,5 @@ function onDraw()
 	local compassLeftY = screenHeight / 2 - COMPASS_INNER_RADIUS * cos(headingAngle + COMPASS_LEFT_ANGLE)
 	local compassRightX = screenWidth / 2 + COMPASS_INNER_RADIUS * -sin(headingAngle + COMPASS_RIGHT_ANGLE)
 	local compassRightY = screenHeight / 2 - COMPASS_INNER_RADIUS * cos(headingAngle + COMPASS_RIGHT_ANGLE)
-	screen.drawTriangleF(compassTipX, compassTipY, compassLeftX, compassLeftY, compassRightX, compassRightY)
+	drawTriangleF(compassTipX, compassTipY, compassLeftX, compassLeftY, compassRightX, compassRightY)
 end

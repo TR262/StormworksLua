@@ -10,6 +10,23 @@ ZOOM = 0
 
 TARGETS = {}
 
+-- Local function caching for performance
+local cos = math.cos
+local sin = math.sin
+local sqrt = math.sqrt
+local fmod = math.fmod
+local ceil = math.ceil
+local pi = math.pi
+local getNumber = input.getNumber
+local getBool = input.getBool
+local setColor = screen.setColor
+local drawText = screen.drawText
+local drawCircle = screen.drawCircle
+local mapToScreen = map.mapToScreen
+local tblInsert = table.insert
+local tblRemove = table.remove
+local tostr = tostring
+
 function CreateTarget(x, y, z, distance, lastUpdate)
     return {
         x = x,
@@ -24,12 +41,13 @@ function GPSDistance3D(t1, t2)
     local dx = t1.x - t2.x
     local dy = t1.y - t2.y
     local dz = t1.z - t2.z
-    return math.sqrt((dx * dx) + (dy * dy) + (dz * dz))
+    return sqrt((dx * dx) + (dy * dy) + (dz * dz))
 end
 
 DELTA = 20
 function ProcessNewTarget(newTarget)
-    for i, target in pairs(TARGETS) do
+    for i = 1, #TARGETS do
+        local target = TARGETS[i]
         if (GPSDistance3D(target, newTarget) < DELTA) then
             TARGETS[i] = CreateTarget(
                 target.x + ((target.x - newTarget.x) / 10),
@@ -41,25 +59,33 @@ function ProcessNewTarget(newTarget)
             return
         end
     end
-    table.insert(TARGETS, newTarget)
+    tblInsert(TARGETS, newTarget)
 end
 
 function ConvertToLocalCoordinates(x, y, z)
+    -- Cache trig values to avoid computing them 9+ times
+    local cosYaw = cos(YAW)
+    local sinYaw = sin(YAW)
+    local cosPitch = cos(PITCH)
+    local sinPitch = sin(PITCH)
+    local cosRoll = cos(ROLL)
+    local sinRoll = sin(ROLL)
+
     local rotMatrix = {
         {
-            (math.cos(PITCH) * math.cos(YAW)),
-            (math.cos(PITCH) * math.sin(YAW) * math.sin(ROLL)) - (math.sin(PITCH) * math.cos(ROLL)),
-            (math.cos(PITCH) * math.sin(YAW) * math.cos(ROLL)) + (math.sin(PITCH) * math.sin(ROLL)),
+            (cosPitch * cosYaw),
+            (cosPitch * sinYaw * sinRoll) - (sinPitch * cosRoll),
+            (cosPitch * sinYaw * cosRoll) + (sinPitch * sinRoll),
         },
         {
-            (math.sin(PITCH) * math.cos(YAW)),
-            (math.sin(PITCH) * math.sin(YAW) * math.sin(ROLL)) + (math.cos(PITCH) * math.cos(ROLL)),
-            (math.sin(PITCH) * math.sin(YAW) * math.cos(ROLL)) - (math.cos(PITCH) * math.sin(ROLL)),
+            (sinPitch * cosYaw),
+            (sinPitch * sinYaw * sinRoll) + (cosPitch * cosRoll),
+            (sinPitch * sinYaw * cosRoll) - (cosPitch * sinRoll),
         },
         {
-            ((-1) * math.sin(YAW)),
-            (math.cos(YAW) * math.sin(ROLL)),
-            (math.cos(YAW) * math.cos(ROLL))
+            (-sinYaw),
+            (cosYaw * sinRoll),
+            (cosYaw * cosRoll)
         },
     }
 
@@ -72,39 +98,43 @@ end
 
 TIMEOUT = 60 * 5
 function onTick()
-    BASE_GPS_X = input.getNumber(27)
-    BASE_GPS_Y = input.getNumber(28)
-    YAW = math.fmod((input.getNumber(29) + 1.25) * 2 * math.pi, 2 * math.pi)
-    PITCH = input.getNumber(30) * 2 * math.pi
-    ROLL = input.getNumber(31) * 2 * math.pi
-    ZOOM = input.getNumber(32)
+    BASE_GPS_X = getNumber(27)
+    BASE_GPS_Y = getNumber(28)
+    YAW = fmod((getNumber(29) + 1.25) * 2 * pi, 2 * pi)
+    PITCH = getNumber(30) * 2 * pi
+    ROLL = getNumber(31) * 2 * pi
+    ZOOM = getNumber(32)
 
     for i = 1, 5 do
-        if (input.getBool(i)) then
-            local distance = input.getNumber((i * 4) - 3)
-            local azimuth = (math.pi / 2) + (2 * math.pi * input.getNumber((i * 4) - 2))
-            local elevation = (math.pi / 2) + (math.pi * input.getNumber((i * 4) - 1))
+        if (getBool(i)) then
+            local distance = getNumber((i * 4) - 3)
+            local azimuth = (pi / 2) + (2 * pi * getNumber((i * 4) - 2))
+            local elevation = (pi / 2) + (pi * getNumber((i * 4) - 1))
 
             -- convert xyz from polar coordinates
-            local x = distance * math.cos(azimuth) * math.cos(elevation)
-            local y = distance * math.sin(azimuth) * math.cos(elevation)
-            local z = distance * math.sin(elevation)
+            local cosAz = cos(azimuth)
+            local sinAz = sin(azimuth)
+            local cosEl = cos(elevation)
+            local sinEl = sin(elevation)
+            local x = distance * cosAz * cosEl
+            local y = distance * sinAz * cosEl
+            local z = distance * sinEl
 
             local localXYZ = ConvertToLocalCoordinates(x, y, z)
 
-            async.httpGet(6942, "/INFO?x=" .. tostring(x)
-                .. "&y=" .. tostring(y)
-                .. "&z=" .. tostring(z)
-                .. "&localX=" .. tostring(localXYZ.x)
-                .. "&localY=" .. tostring(localXYZ.y)
-                .. "&localZ=" .. tostring(localXYZ.z)
-                .. "&distance=" .. tostring(distance)
-                .. "&azimuth=" .. tostring(azimuth)
-                .. "&elevation=" .. tostring(elevation)
-                .. "&yaw=" .. tostring(YAW)
-                .. "&pitch=" .. tostring(PITCH)
-                .. "&roll=" .. tostring(ROLL)
-                .. "&zoom=" .. tostring(ZOOM)
+            async.httpGet(6942, "/INFO?x=" .. tostr(x)
+                .. "&y=" .. tostr(y)
+                .. "&z=" .. tostr(z)
+                .. "&localX=" .. tostr(localXYZ.x)
+                .. "&localY=" .. tostr(localXYZ.y)
+                .. "&localZ=" .. tostr(localXYZ.z)
+                .. "&distance=" .. tostr(distance)
+                .. "&azimuth=" .. tostr(azimuth)
+                .. "&elevation=" .. tostr(elevation)
+                .. "&yaw=" .. tostr(YAW)
+                .. "&pitch=" .. tostr(PITCH)
+                .. "&roll=" .. tostr(ROLL)
+                .. "&zoom=" .. tostr(ZOOM)
             )
 
             ProcessNewTarget(CreateTarget(
@@ -119,9 +149,11 @@ function onTick()
         end
     end
 
-    for i, target in pairs(TARGETS) do
+    -- Iterate backwards to safely remove while iterating
+    for i = #TARGETS, 1, -1 do
+        local target = TARGETS[i]
         if (target.lastUpdate > TIMEOUT) then
-            table.remove(TARGETS, i)
+            tblRemove(TARGETS, i)
         else
             TARGETS[i].lastUpdate = target.lastUpdate + 1
         end
@@ -132,24 +164,26 @@ function onDraw()
     local w = screen.getWidth()
     local h = screen.getHeight()
 
-    screen.setColor(255, 255, 255)
-    screen.drawText(0, 0, "ZOOM: " .. tostring(math.ceil(ZOOM)))
-    screen.drawText(0, 8, "TRACKING " .. tostring(#TARGETS) .. " TANGOS")
+    setColor(255, 255, 255)
+    drawText(0, 0, "ZOOM: " .. tostr(ceil(ZOOM)))
+    drawText(0, 8, "TRACKING " .. tostr(#TARGETS) .. " TANGOS")
     local maxDistance = 0
-    for _, target in pairs(TARGETS) do
+    for i = 1, #TARGETS do
+        local target = TARGETS[i]
         if (target.distance > maxDistance) then
             maxDistance = target.distance
         end
     end
-    screen.drawText(0, 16, "MAX DISTANCE: " .. tostring(math.ceil(maxDistance)) .. "m")
-    screen.drawText(w / 2, 4, "N")
-    screen.drawText(w / 2, h - 8, "S")
-    screen.drawText(4, h / 2, "W")
-    screen.drawText(w - 8, h / 2, "E")
+    drawText(0, 16, "MAX DISTANCE: " .. tostr(ceil(maxDistance)) .. "m")
+    drawText(w / 2, 4, "N")
+    drawText(w / 2, h - 8, "S")
+    drawText(4, h / 2, "W")
+    drawText(w - 8, h / 2, "E")
 
-    for _, target in pairs(TARGETS) do
-        local mapX, mapY = map.mapToScreen(BASE_GPS_X, BASE_GPS_Y, ZOOM, w, h, target.x, target.y)
-        screen.setColor(255, 0, 0)
-        screen.drawCircle(mapX, mapY, 1)
+    for i = 1, #TARGETS do
+        local target = TARGETS[i]
+        local mapX, mapY = mapToScreen(BASE_GPS_X, BASE_GPS_Y, ZOOM, w, h, target.x, target.y)
+        setColor(255, 0, 0)
+        drawCircle(mapX, mapY, 1)
     end
 end

@@ -5,45 +5,66 @@ RADAR_HEADING_RELATIVE = 0
 ZOOM = 0
 RADAR_RANGE = 10000
 
+-- Local function caching for performance
+local cos = math.cos
+local sin = math.sin
+local fmod = math.fmod
+local ceil = math.ceil
+local abs = math.abs
+local pi = math.pi
+local getNumber = input.getNumber
+local setColor = screen.setColor
+local drawLine = screen.drawLine
+local drawRect = screen.drawRect
+local drawText = screen.drawText
+local drawMap = screen.drawMap
+local mapToScreen = map.mapToScreen
+local screenToMap = map.screenToMap
+local tostr = tostring
+
 function onTick()
-    BASE_GPS_X = input.getNumber(1)
-    BASE_GPS_Y = input.getNumber(2)
-    BASE_HEADING_ABSOLUTE = math.fmod((input.getNumber(3) + 1.25) * 2 * math.pi, 2 * math.pi)
-    RADAR_HEADING_RELATIVE = (-2) * math.pi * math.fmod(input.getNumber(4), 1)
-    ZOOM = input.getNumber(5)
+    BASE_GPS_X = getNumber(1)
+    BASE_GPS_Y = getNumber(2)
+    BASE_HEADING_ABSOLUTE = fmod((getNumber(3) + 1.25) * 2 * pi, 2 * pi)
+    RADAR_HEADING_RELATIVE = (-2) * pi * fmod(getNumber(4), 1)
+    ZOOM = getNumber(5)
 end
 
 function onDraw()
     local w = screen.getWidth()
     local h = screen.getHeight()
+    local halfW = w / 2
+    local halfH = h / 2
 
-    screen.drawMap(BASE_GPS_X, BASE_GPS_Y, ZOOM)
+    drawMap(BASE_GPS_X, BASE_GPS_Y, ZOOM)
 
-    screen.setColor(0, 255, 0)
-    local mapX, mapY = map.mapToScreen(BASE_GPS_X, BASE_GPS_Y, ZOOM, w, h, BASE_GPS_X, BASE_GPS_Y)
-    screen.drawRect(mapX - 1, mapY + 1, 3, 3)
+    setColor(0, 255, 0)
+    local mapX, mapY = mapToScreen(BASE_GPS_X, BASE_GPS_Y, ZOOM, w, h, BASE_GPS_X, BASE_GPS_Y)
+    drawRect(mapX - 1, mapY + 1, 3, 3)
 
+    local radarScreenRange = RADAR_RANGE / 2 / ZOOM
+    local baseAngle = BASE_HEADING_ABSOLUTE + RADAR_HEADING_RELATIVE
     for i = 0, 20 do
-        screen.setColor(0, 255, 0, 255 - (i * 255 / 20))
-        local angle = BASE_HEADING_ABSOLUTE + RADAR_HEADING_RELATIVE + (i * math.pi / 360)
-        screen.drawLine(
-            w / 2, h / 2,
-            (w / 2) + ((RADAR_RANGE / 2 / ZOOM) * math.cos(angle)),
-            (h / 2) - ((RADAR_RANGE / 2 / ZOOM) * math.sin(angle))
+        setColor(0, 255, 0, 255 - (i * 255 / 20))
+        local angle = baseAngle + (i * pi / 360)
+        drawLine(
+            halfW, halfH,
+            halfW + (radarScreenRange * cos(angle)),
+            halfH - (radarScreenRange * sin(angle))
         )
     end
 
-    screen.setColor(0, 0, 0)
-    screen.drawLine(
-        w / 2, h / 2,
-        (w / 2) + (10 * math.cos(BASE_HEADING_ABSOLUTE)),
-        (h / 2) - (10 * math.sin(BASE_HEADING_ABSOLUTE))
+    setColor(0, 0, 0)
+    drawLine(
+        halfW, halfH,
+        halfW + (10 * cos(BASE_HEADING_ABSOLUTE)),
+        halfH - (10 * sin(BASE_HEADING_ABSOLUTE))
     )
 
-    local worldX, _ = map.screenToMap(BASE_GPS_X, BASE_GPS_Y, ZOOM, w, h, (w / 2) + 50, (h / 2))
-    local distance = math.abs(worldX - BASE_GPS_X)
-    screen.setColor(255, 255, 255)
-    screen.drawLine(0, h - 8 - 5, 50, h - 8 - 5)
-    screen.drawText(0, h - 8, tostring(math.ceil(distance / 1000)) .. "km")
+    local worldX, _ = screenToMap(BASE_GPS_X, BASE_GPS_Y, ZOOM, w, h, halfW + 50, halfH)
+    local distance = abs(worldX - BASE_GPS_X)
+    setColor(255, 255, 255)
+    drawLine(0, h - 13, 50, h - 13)
+    drawText(0, h - 8, tostr(ceil(distance / 1000)) .. "km")
 
 end
